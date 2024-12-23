@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        main {
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f4f4f9;
+        }
+
+        button {
+            padding: 8px 12px;
+            background-color: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 100;
+        }
+
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 700px;
+            z-index: 101;
+        }
+
+        .popup-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: #333;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .popup-close:hover {
+            color: #f44336;
+        }
+
+        .popup-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .popup-table th,
+        .popup-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .popup-table th {
+            background-color: #f4f4f9;
+        }
+
+        button {
+            padding: 8px 12px;
+            background-color: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        input {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        #logoutBtn {
+            display: none;
+        }
+
+        #authSection {
+            text-align: center;
+        }
+
+        .form-section {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+        }
+
+        .form-section label {
+            margin-bottom: 5px;
+        }
+
+    </style>
+</head>
+
+<body>
+    <header>
+        Admin Panel
+        <button id="logoutBtn">Abmelden</button>
+        <a href="/.netlify/functions/calendar" target="_blank">Mit Apple Kalender abonnieren</a>
+    </header>
+    <div id="authSection" class="section" style="display: none;">
+        <h2>Login</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Passwort">
+        <button id="loginBtn">Login</button>
+    </div>
+
+    <main>
+        <div id="appointmentsSection" class="section">
+            <h2>Termine</h2>
+            <table id="appointmentsTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Datum</th>
+                        <th>Startzeit</th>
+                        <th>Endzeit</th>
+                        <th>Beschreibung</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Dynamically added appointments -->
+                </tbody>
+            </table>
+            <button id="viewPastAppointmentsBtn">Vergangene Termine anzeigen</button>
+        </div>
+
+        <div id="blockTimesSection" class="section">
+            <h2>Blockzeiten</h2>
+            <div>
+                <label for="startTime">Startzeit:</label>
+                <input type="time" id="startTime">
+                <label for="endTime">Endzeit:</label>
+                <input type="time" id="endTime">
+                <button id="addBlockTimeBtn">Blockzeit hinzufügen</button>
+            </div>
+
+            <table id="blockTimesTable">
+                <thead>
+                    <tr>
+                        <th>Startzeit</th>
+                        <th>Endzeit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Dynamically added block times -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Popup for past appointments -->
+    <div id="popupOverlay" class="popup-overlay"></div>
+    <div id="pastAppointmentsPopup" class="popup">
+        <button class="popup-close" id="popup" onclick="closePopup()">×</button>
+        <div class="popup-header">Vergangene Termine</div>
+        <table class="popup-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Datum</th>
+                    <th>Startzeit</th>
+                    <th>Endzeit</th>
+                    <th>Beschreibung</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamically added past appointments -->
+            </tbody>
+        </table>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.18.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.18.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.18.0/firebase-firestore.js";
+
+        // Firebase-Konfiguration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA-rpamwgccB3O8ZvwwhfeBaiMniHRuNTA",
+            authDomain: "eigene-webseite-a34ee.firebaseapp.com",
+            projectId: "eigene-webseite-a34ee",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // HTML Elements
+        const authSection = document.getElementById('authSection');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const popup = document.getElementById('popup');
+        const viewPastAppointmentsBtn = document.getElementById('viewPastAppointmentsBtn');
+        const pastAppointmentsPopup = document.getElementById('pastAppointmentsPopup');
+        const pastAppointmentsTable = document.getElementById('pastAppointmentsTable');
+
+        // Auth state listener
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                showAdminPanel();
+            } else {
+                // No user is signed in
+                showLoginPage();
+            }
+        });
+
+        function showAdminPanel() {
+            document.querySelector('main').style.display = 'block';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            document.getElementById('authSection').style.display = 'none';
+            loadAppointments();
+            loadBlockTimes();
+        }
+
+        function showLoginPage() {
+            document.querySelector('main').style.display = 'none';
+            document.getElementById('authSection').style.display = 'block';
+        }
+
+        // Sign in user
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+
+        // Logout user
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+        });
+
+        popup.addEventListener('click', () => {
+            pastAppointmentsPopup.classList.remove('open');
+            popupOverlay.classList.remove('open');
+        });
+
+        // Function to load appointments
+        async function loadAppointments() {
+            const snapshot = await getDocs(collection(db, 'bookings'));
+            const appointments = [];
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                appointments.push({
+                    id: doc.id,
+                    ...data
+                });
+            });
+
+            // Sort appointments
+            appointments.sort((a, b) => {
+                const dateA = new Date(`${a.startDate}T${a.startTime}`);
+                const dateB = new Date(`${b.startDate}T${b.startTime}`);
+                return dateA - dateB;
+            });
+
+            // Update the table
+            const appointmentsTable = document.querySelector('#appointmentsTable tbody');
+            appointmentsTable.innerHTML = '';
+            appointments.forEach(appointment => {
+                const tr = document.createElement('tr');
+                const [year, month, day] = appointment.startDate.split("-");
+                const formattedDate = `${day}.${month}.${year}`;
+                tr.innerHTML = `
+                    <td>${appointment.name}</td>
+                    <td>${appointment.email}</td>
+                    <td>${formattedDate}</td>
+                    <td>${appointment.startTime}</td>
+                    <td>${appointment.endTime}</td>
+                    <td>${appointment.description}</td>
+                    <td><button onclick="deleteAppointment('${appointment.id}')">Löschen</button></td>
+                `;
+                appointmentsTable.appendChild(tr);
+            });
+        }
+
+        // Function to load past appointments
+        async function loadPastAppointments() {
+            const snapshot = await getDocs(collection(db, 'bookings'));
+            const pastAppointments = [];
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const appointmentDate = new Date(`${data.startDate}T${data.startTime}`);
+                const currentDate = new Date();
+
+                if (appointmentDate < currentDate) {
+                    pastAppointments.push({
+                        id: doc.id,
+                        ...data
+                    });
+                }
+            });
+
+            // Update the past appointments table
+            pastAppointmentsTable.innerHTML = '';
+            pastAppointments.forEach(appointment => {
+                const tr = document.createElement('tr');
+                const [year, month, day] = appointment.startDate.split("-");
+                const formattedDate = `${day}.${month}.${year}`;
+                tr.innerHTML = `
+                    <td>${appointment.name}</td>
+                    <td>${appointment.email}</td>
+                    <td>${formattedDate}</td>
+                    <td>${appointment.startTime}</td>
+                    <td>${appointment.endTime}</td>
+                    <td>${appointment.description}</td>
+                `;
+                pastAppointmentsTable.appendChild(tr);
+            });
+        }
+
+        // Show popup for past appointments
+        viewPastAppointmentsBtn.addEventListener('click', () => {
+            loadPastAppointments();
+            pastAppointmentsPopup.style.display = 'block';
+        });
+
+
+        // Delete appointment function
+        window.deleteAppointment = async function (id) {
+            await deleteDoc(doc(db, 'bookings', id));
+            alert('Termin gelöscht.');
+            loadAppointments();
+        };
+
+        // Function to load block times
+        async function loadBlockTimes() {
+            const snapshot = await getDocs(collection(db, 'blockTimes'));
+            const blockTimesTable = document.querySelector('#blockTimesTable tbody');
+            blockTimesTable.innerHTML = '';
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${data.weekdays.join(', ')}</td>
+                    <td>${data.start}</td>
+                    <td>${data.end}</td>
+                    <td><button onclick="deleteBlockTime('${doc.id}')">Löschen</button></td>
+                `;
+                blockTimesTable.appendChild(tr);
+            });
+        }
+
+        // Add block time
+        addBlockTimeBtn.addEventListener('click', async () => {
+            const weekdays = [];
+
+            if (mondayCheckbox.checked) weekdays.push('Montag');
+            if (tuesdayCheckbox.checked) weekdays.push('Dienstag');
+            if (wednesdayCheckbox.checked) weekdays.push('Mittwoch');
+            if (thursdayCheckbox.checked) weekdays.push('Donnerstag');
+            if (fridayCheckbox.checked) weekdays.push('Freitag');
+            if (saturdayCheckbox.checked) weekdays.push('Samstag');
+            if (sundayCheckbox.checked) weekdays.push('Sonntag');
+
+            const start = startTimeInput.value;
+            const end = endTimeInput.value;
+
+            if (weekdays.length === 0 || !start || !end) {
+                alert('Bitte alle Felder ausfüllen.');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, 'blockTimes'), {
+                    weekdays: weekdays,
+                    start: start,
+                    end: end
+                });
+                alert('Blockzeit hinzugefügt.');
+                loadBlockTimes();  // Refresh block times
+            } catch (error) {
+                alert('Fehler beim Hinzufügen der Blockzeit: ' + error.message);
+            }
+        });
+
+        // Delete block time function
+        window.deleteBlockTime = async function (id) {
+            await deleteDoc(doc(db, 'blockTimes', id));
+            alert('Sperrzeit gelöscht.');
+            loadBlockTimes();
+        };
+    </script>
+</body>
+
+</html>
